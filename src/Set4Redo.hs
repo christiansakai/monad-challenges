@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Set4Redo where
 
 import MCPrelude
@@ -8,7 +10,7 @@ import Prelude hiding
   , (>>=)
   , sequence
   , fmap
-  , Maybe
+  , Maybe(..)
   )
 
 class Monad m where
@@ -39,6 +41,10 @@ liftM2 f ma mb = ap (ap (return f) ma) mb
 
 liftM3 :: Monad m => (a -> b -> c -> d) -> m a -> m b -> m c -> m d
 liftM3 f ma mb mc = ap (ap (ap (return f) ma) mb) mc
+
+combine :: Monad m => m (m a) -> m a
+combine mma = 
+  mma >>= \ma -> ma
 
 -- Set 1
 
@@ -73,149 +79,110 @@ randList :: [Gen a] -> Gen [a]
 randList genAs = sequence genAs 
 
 -- Set 2
+
 data Maybe a
   = Just a
   | Nothing
 
--- instance Show a => Show (Maybe a) where
---   show Nothing  = "Nothing"
---   show (Just a) = "Just " ++ show a
+instance Show a => Show (Maybe a) where
+  show Nothing  = "Nothing"
+  show (Just a) = "Just " ++ show a
 
--- headMay :: [a] -> Maybe a
--- headMay []      = Nothing
--- headMay (a:as)  = Just a
+instance Monad Maybe where
+  return = Just
 
--- tailMay :: [a] -> Maybe [a]
--- tailMay []      = Nothing
--- tailMay (a:as)  = Just as
+  Nothing >>= _ = Nothing
+  Just a >>= f  = f a 
 
--- lookupMay :: Eq a => a -> [(a, b)] -> Maybe b
--- lookupMay _ []            = Nothing
--- lookupMay a ((a', b):xs)  = 
---   if (a == a') 
---      then Just b
---      else lookupMay a xs
+headMay :: [a] -> Maybe a
+headMay []      = Nothing
+headMay (a:as)  = return a
 
--- divMay :: (Eq a, Fractional a) => a -> a -> Maybe a
--- divMay top 0    = Nothing
--- divMay top bot  = Just $ top / bot
+tailMay :: [a] -> Maybe [a]
+tailMay []      = Nothing
+tailMay (a:as)  = return as
 
--- maximumMay :: Ord a => [a] -> Maybe a
--- maximumMay []   = Nothing
--- maximumMay list = Just $ go (head list) list
---   where go max []     = max
---         go max (a:as) 
---           | max >= a    = go max as
---           | otherwise   = go a as
+lookupMay :: Eq a => a -> [(a, b)] -> Maybe b
+lookupMay _ []            = Nothing
+lookupMay a ((a', b):xs)  = 
+  if (a == a') 
+     then return b
+     else lookupMay a xs
 
--- minimumMay :: Ord a => [a] -> Maybe a
--- minimumMay []   = Nothing
--- minimumMay list = Just $ go (head list) list
---   where go min []     = min
---         go min (a:as) 
---           | min <= a    = go min as
---           | otherwise   = go a as
+divMay :: (Eq a, Fractional a) => a -> a -> Maybe a
+divMay top 0    = Nothing
+divMay top bot  = return $ top / bot
 
--- queryGreek :: GreekData -> String -> Maybe Double
--- queryGreek gr str =
---   case lookupMay str gr of
---     Nothing   -> Nothing
---     Just xs   ->
---       case tailMay xs of
---         Nothing   -> Nothing
---         Just tail -> 
---           case maximumMay tail of
---             Nothing   -> Nothing
---             Just max  ->
---               case headMay xs of
---                 Nothing   -> Nothing
---                 Just head ->
---                   case divMay (fromIntegral max)
---                               (fromIntegral head) of
---                     Nothing -> Nothing
---                     result  -> result
+maximumMay :: Ord a => [a] -> Maybe a
+maximumMay []   = Nothing
+maximumMay list = return $ go (head list) list
+  where go max []     = max
+        go max (a:as) 
+          | max >= a    = go max as
+          | otherwise   = go a as
 
--- chain :: (a -> Maybe b) -> Maybe a -> Maybe b
--- chain transformer mayA =
---   case mayA of
---     Nothing -> Nothing
---     Just a  -> transformer a
+minimumMay :: Ord a => [a] -> Maybe a
+minimumMay []   = Nothing
+minimumMay list = return $ go (head list) list
+  where go min []     = min
+        go min (a:as) 
+          | min <= a    = go min as
+          | otherwise   = go a as
 
--- link :: Maybe a -> (a -> Maybe b) -> Maybe b
--- link mayA transformer = flip chain mayA transformer
+queryGreek :: GreekData -> String -> Maybe Double
+queryGreek gr str =
+  lookupMay str gr >>= \xs ->
+    tailMay xs >>= \tail ->
+      maximumMay tail >>= \max ->
+        headMay xs >>= \head ->
+          divMay (fromIntegral max)
+                 (fromIntegral head) 
 
--- queryGreek2 :: GreekData -> String -> Maybe Double
--- queryGreek2 gr str =
---   link (lookupMay str gr) $ \xs -> 
---     link (tailMay xs) $ \tail ->
---       link (maximumMay tail) $ \max ->
---         link (headMay xs) $ \head ->
---           divMay (fromIntegral max) (fromIntegral head)
+salaries :: [(String, Integer)]
+salaries = [ ("alice", 105000)
+           , ("bob", 90000)
+           , ("carol", 85000)
+           ]
 
--- salaries :: [(String, Integer)]
--- salaries = [ ("alice", 105000)
---            , ("bob", 90000)
---            , ("carol", 85000)
---            ]
+addSalaries :: [(String, Integer)] 
+            -> String 
+            -> String
+            -> Maybe Integer
+addSalaries salaries name1 name2 =
+  liftM2 (+) (lookupMay name1 salaries) (lookupMay name2 salaries)
 
--- addSalaries :: [(String, Integer)] 
---             -> String 
---             -> String
---             -> Maybe Integer
--- addSalaries salaries name1 name2 =
---   case lookupMay name1 salaries of
---     Nothing       -> Nothing
---     Just salary1  ->
---       case lookupMay name2 salaries of
---         Nothing       -> Nothing
---         Just salary2  -> 
---           mkMaybe $ salary1 + salary2
+tailProd :: Num a => [a] -> Maybe a
+tailProd list =
+  tailMay list >>= \tail -> return $ product tail
 
--- yLink :: (Eq a, Num b) => [(a, b)] -> a -> a -> Maybe b
--- yLink list a1 a2 =
---   link (lookupMay a1 list) $ \b1 ->
---     link (lookupMay a2 list) $ \b2 ->
---       mkMaybe $ b1 + b2
+tailSum :: Num a => [a] -> Maybe a
+tailSum list =
+  tailMay list >>= \tail -> return $ sum tail
 
--- addSalaries2 :: [(String, Integer)] 
---              -> String 
---              -> String
---              -> Maybe Integer
--- addSalaries2 salaries name1 name2 =
---   yLink salaries name1 name2
+tailProd2 :: (Foldable t, Num (t a), Num a) => t a -> Maybe a
+tailProd2 list = liftM product (return list)
 
--- mkMaybe :: a -> Maybe a
--- mkMaybe = Just
+tailSum2 :: (Foldable t, Num (t a), Num a) => t a -> Maybe a
+tailSum2 list = liftM sum (return list)
 
--- tailProd :: Num a => [a] -> Maybe a
--- tailProd list =
---   link (tailMay list) $ \tail ->
---     mkMaybe $ product tail
+tailMax :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)
+tailMax list = liftM maximumMay (return list)
 
--- tailSum :: Num a => [a] -> Maybe a
--- tailSum list =
---   link (tailMay list) $ \tail ->
---     mkMaybe $ sum tail
+tailMin :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)
+tailMin list = liftM minimumMay (return list)
 
--- transMaybe :: Num a => (a -> b) -> Maybe a -> Maybe b
--- transMaybe transformer mayA =
---   link mayA $ \a -> mkMaybe $ transformer a
+-- Set 3
 
--- tailProd2 :: (Foldable t, Num (t a), Num a) => t a -> Maybe a
--- tailProd2 list = transMaybe product (mkMaybe list)
+data Card = Card Int String
 
--- tailSum2 :: (Foldable t, Num (t a), Num a) => t a -> Maybe a
--- tailSum2 list = transMaybe sum (mkMaybe list)
+instance Show Card where
+  show (Card int str) = show int ++ str
 
--- tailMax :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)
--- tailMax list = 
---   transMaybe maximumMay (mkMaybe list)
+instance Monad [] where
+  return a = [a]
 
--- tailMin :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)
--- tailMin list = 
---   transMaybe minimumMay (mkMaybe list)
+  [] >>= f      = []
+  (a:as) >>= f  = (f a) ++ (as >>= f)
 
--- combine :: Maybe (Maybe a) -> Maybe a
--- combine Nothing           = Nothing
--- combine (Just (Nothing))  = Nothing 
--- combine (Just (Just a))   = Just a
+allCards :: [Int] -> [String] -> [Card]
+allCards ints strs = liftM2 Card ints strs
