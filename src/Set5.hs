@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE RebindableSyntax  #-}
 
-module Set4Redo where
+module Set5 where
 
 import MCPrelude
 
@@ -38,6 +39,7 @@ combine :: Monad m => m (m a) -> m a
 combine mma = 
   mma >>= \ma -> ma
 
+
 -- Set 1
 
 newtype Gen a = Gen { runGen :: Seed -> (a, Seed) }
@@ -49,26 +51,21 @@ instance Monad Gen where
     let (a, s') = runGen ga s
      in runGen (f a) s'
 
-randInteger :: Gen Integer
-randInteger = Gen rand
+makeRandom :: Gen Integer
+makeRandom = Gen rand
+
+fiveRands :: Gen [Integer]
+fiveRands = sequence $ replicate 5 makeRandom
 
 randLetter :: Gen Char
-randLetter = liftM toLetter randInteger
+randLetter = liftM toLetter makeRandom
 
-randEven :: Gen Integer 
-randEven = liftM (* 2) randInteger
+randString3 :: Gen String
+randString3 = sequence $ replicate 3 randLetter
 
-randOdd :: Gen Integer
-randOdd = liftM (+ 1) randInteger
+generalPair :: Gen a -> Gen b -> Gen (a, b)
+generalPair genA genB = liftM2 (,) genA genB
 
-randTen :: Gen Integer
-randTen = liftM (* 10) randInteger
-
-randPair :: Gen (Char, Integer)
-randPair = liftM2 (,) randLetter randInteger
-
-randList :: [Gen a] -> Gen [a]
-randList genAs = sequence genAs 
 
 -- Set 2
 
@@ -122,46 +119,43 @@ minimumMay (a:as) = return $ go a as
           | otherwise   = go a as
 
 queryGreek :: GreekData -> String -> Maybe Double
-queryGreek gr str =
-  lookupMay str gr >>= \xs ->
-    tailMay xs >>= \tail ->
-      maximumMay tail >>= \max ->
-        headMay xs >>= \head ->
-          divMay (fromIntegral max)
-                 (fromIntegral head) 
+queryGreek gr str = do
+  xs <- lookupMay str gr
+  tail <- tailMay xs
+  max <- maximumMay tail
+  head <- headMay xs
+  divMay (fromIntegral max) (fromIntegral head)
 
 salaries :: [(String, Integer)]
 salaries = [ ("alice", 105000)
            , ("bob", 90000)
            , ("carol", 85000)
            ]
-
 addSalaries :: [(String, Integer)] 
             -> String 
             -> String
             -> Maybe Integer
-addSalaries salaries name1 name2 =
-  liftM2 (+) (lookupMay name1 salaries) (lookupMay name2 salaries)
+addSalaries salaries name1 name2 = do
+  salary1 <- lookupMay name1 salaries
+  salary2 <- lookupMay name2 salaries
+  return $ salary1 + salary2
 
 tailProd :: Num a => [a] -> Maybe a
-tailProd list =
-  tailMay list >>= \tail -> return $ product tail
+tailProd list = do
+  tail <- tailMay list
+  return $ product tail
 
 tailSum :: Num a => [a] -> Maybe a
-tailSum list =
-  tailMay list >>= \tail -> return $ sum tail
+tailSum list = do
+  tail <- tailMay list
+  return $ sum tail
 
-tailProd2 :: (Num [a], Num a) => [a] -> Maybe a
-tailProd2 list = liftM product (return list)
+tailMax :: Ord a => [a] -> Maybe a
+tailMax list = do
+  tail <- tailMay list
+  max <- maximumMay tail
+  return max
 
-tailSum2 :: (Num [a], Num a) => [a] -> Maybe a
-tailSum2 list = liftM sum (return list)
-
-tailMax :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)
-tailMax list = liftM maximumMay (return list)
-
-tailMin :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)
-tailMin list = liftM minimumMay (return list)
 
 -- Set 3
 
@@ -176,5 +170,21 @@ instance Monad [] where
   [] >>= f      = []
   (a:as) >>= f  = (f a) ++ (as >>= f)
 
+allPairs :: [a] -> [b] -> [(a, b)]
+allPairs as bs = do
+  a <- as
+  b <- bs
+  return $ (a, b)
+
 allCards :: [Int] -> [String] -> [Card]
-allCards ints strs = liftM2 Card ints strs
+allCards ints strs = do
+  int <- ints
+  str <- strs
+  return $ Card int str
+
+allCombs3 :: (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
+allCombs3 f as bs cs = do
+  a <- as
+  b <- bs
+  c <- cs
+  return $ f a b c

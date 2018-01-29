@@ -1,11 +1,8 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module Set1 where
 
 import MCPrelude 
-  ( Seed
-  , mkSeed
-  , rand
-  , toLetter
-  )
 
 type Gen a = Seed -> (a, Seed)
 

@@ -1,13 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Set2 where
 
-import Prelude hiding (Maybe(..))
 import MCPrelude 
-  ( GreekData
-  , greekDataA
-  , greekDataB
-  )
 
 data Maybe a
   = Just a
@@ -37,17 +33,17 @@ divMay top 0    = Nothing
 divMay top bot  = Just $ top / bot
 
 maximumMay :: Ord a => [a] -> Maybe a
-maximumMay []   = Nothing
-maximumMay list = Just $ go (head list) list
-  where go max []     = max
+maximumMay []       = Nothing
+maximumMay (a:as)   = Just $ go a as
+  where go max []       = max
         go max (a:as) 
           | max >= a    = go max as
           | otherwise   = go a as
 
 minimumMay :: Ord a => [a] -> Maybe a
-minimumMay []   = Nothing
-minimumMay list = Just $ go (head list) list
-  where go min []     = min
+minimumMay []     = Nothing
+minimumMay (a:as) = Just $ go a as
+  where go min []       = min
         go min (a:as) 
           | min <= a    = go min as
           | otherwise   = go a as
@@ -137,10 +133,10 @@ transMaybe :: Num a => (a -> b) -> Maybe a -> Maybe b
 transMaybe transformer mayA =
   link mayA $ \a -> mkMaybe $ transformer a
 
-tailProd2 :: (Foldable t, Num (t a), Num a) => t a -> Maybe a
+tailProd2 :: (Num [a], Num a) => [a] -> Maybe a
 tailProd2 list = transMaybe product (mkMaybe list)
 
-tailSum2 :: (Foldable t, Num (t a), Num a) => t a -> Maybe a
+tailSum2 :: (Num [a], Num a) => [a] -> Maybe a
 tailSum2 list = transMaybe sum (mkMaybe list)
 
 tailMax :: (Ord a, Num a, Num [a]) => [a] -> Maybe (Maybe a)

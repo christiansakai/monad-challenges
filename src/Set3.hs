@@ -1,19 +1,10 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE RebindableSyntax  #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Set3 where
 
 import MCPrelude 
-  ( Int
-  , String
-  , Show
-  , show
-  , (++)
-  , map
-  , foldr
-  , cardRanks
-  , cardSuits
-  )
 
 allPairs :: [a] -> [b] -> [(a, b)]
 allPairs [] _       = []
